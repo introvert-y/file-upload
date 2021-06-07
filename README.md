@@ -27,3 +27,5 @@ yarn serve
   cd serve
   node index.js
 ```
+
+### tip: 只能上传mp3的能有效播放，mp4只有第一个分片能正常播放，且合并分片后播放失败

@@ -246,14 +246,14 @@ export default {
     },
     // 根据 hash 验证文件是否曾经已经被上传过
     // 没有才进行上传
-    async verifyUpload(filename, fileHash) {
+    async verifyUpload(fileName, fileHash) {
       const { data } = await this.request({
         url: "http://localhost:3000/verify",
         headers: {
           "content-type": "application/json",
         },
         data: JSON.stringify({
-          filename,
+          fileName,
           fileHash,
         }),
       });

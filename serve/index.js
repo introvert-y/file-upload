@@ -5,8 +5,9 @@ const multiparty = require("multiparty");
 
 const server = http.createServer();
 
-const extractExt = filename =>
-  filename.slice(filename.lastIndexOf("."), filename.length); // 提取后缀名
+const extractExt = fileName => {
+  return fileName.slice(fileName.lastIndexOf("."))
+}  // 提取后缀名
 const UPLOAD_DIR = path.resolve(__dirname, "target"); // 大文件存储目录
 
 const SIZE = 1 * 1024 * 1024; // 切片大小
@@ -37,8 +38,7 @@ const SIZE = 1 * 1024 * 1024; // 切片大小
   });
 
 // 合并切片
- const mergeFileChunk = async (filePath, fileHash, size = SIZE) => {
-   
+ const mergeFileChunk = async (filePath, fileHash, size = SIZE) => { 
   const chunkDir = path.resolve(UPLOAD_DIR, `${fileHash}`);
   console.log('mergeFileChunk chunkDir', chunkDir);
   const readKey = '读取目录';
@@ -85,9 +85,9 @@ server.on("request", async (req, res) => {
   }
   if (req.url === "/verify") {
       const data = await resolvePost(req);
-      const { fileHash } = data;
+      const { fileHash, fileName } = data;
       console.log('verify', fileHash)
-      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}.mp3`);
+      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(fileName)}`);
       const fileDirPath = path.resolve(UPLOAD_DIR, `${fileHash}`);
       console.log('verify filePath', filePath, fileDirPath)
       const hasFileDirPath =  fse.existsSync(fileDirPath);
