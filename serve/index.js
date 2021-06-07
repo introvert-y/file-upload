@@ -9,7 +9,7 @@ const extractExt = filename =>
   filename.slice(filename.lastIndexOf("."), filename.length); // 提取后缀名
 const UPLOAD_DIR = path.resolve(__dirname, "target"); // 大文件存储目录
 
-const SIZE = 10 * 1024 * 1024; // 切片大小
+const SIZE = 1 * 1024 * 1024; // 切片大小
 
  const resolvePost = req => {
   return new Promise(resolve => {
@@ -24,8 +24,7 @@ const SIZE = 10 * 1024 * 1024; // 切片大小
   });
  }
 
-   
-
+  
  const pipeStream = (path, writeStream) => new Promise(resolve => {
     const readStream = fse.createReadStream(path);
     readStream.pipe(writeStream);
@@ -38,9 +37,9 @@ const SIZE = 10 * 1024 * 1024; // 切片大小
   });
 
 // 合并切片
- const mergeFileChunk = async (filePath, filename, size = SIZE) => {
+ const mergeFileChunk = async (filePath, fileHash, size = SIZE) => {
    
-  const chunkDir = path.resolve(UPLOAD_DIR, filename.split('.')[0]);
+  const chunkDir = path.resolve(UPLOAD_DIR, `${fileHash}`);
   console.log('mergeFileChunk chunkDir', chunkDir);
   const readKey = '读取目录';
   const starMergekey = '开始合并';
@@ -71,7 +70,11 @@ const SIZE = 10 * 1024 * 1024; // 切片大小
   fse.rmdirSync(chunkDir); // 合并后删除保存切片的目录
 };
 
-
+// 返回已经上传切片名
+const createUploadedList = async fileHash =>
+  fse.existsSync(path.resolve(UPLOAD_DIR, fileHash))
+    ? await fse.readdir(path.resolve(UPLOAD_DIR, fileHash))
+    : [];
 server.on("request", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
@@ -80,22 +83,38 @@ server.on("request", async (req, res) => {
     res.end();
     return;
   }
-     if (req.url === "/merge") {
-         const data = await resolvePost(req);
-         console.log('data', data);
-         const { filename,size } = data;
-         console.log('/merge filename', filename)
-         const filePath = path.resolve(UPLOAD_DIR, `${filename}`);
-         console.log('/merge filePath', filePath)
+  if (req.url === "/verify") {
+      const data = await resolvePost(req);
+      const { fileHash } = data;
+      console.log('verify', fileHash)
+      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}.mp3`);
+      const fileDirPath = path.resolve(UPLOAD_DIR, `${fileHash}`);
+      console.log('verify filePath', filePath, fileDirPath)
+      const hasFileDirPath =  fse.existsSync(fileDirPath);
+      res.end(
+        JSON.stringify({
+          shouldUpload: !fse.existsSync(filePath),
+          uploadedList: hasFileDirPath ? await createUploadedList(fileHash) : [],
+        })
+      );
+    }
+  
+  if (req.url === "/merge") {
+      const data = await resolvePost(req);
+      console.log('data', data);
+      const { fileHash, fileName } = data;
+      console.log('/merge fileHash', fileHash)
+      const filePath = path.resolve(UPLOAD_DIR, `${fileHash}.mp3`);
+      console.log('/merge filePath', filePath)
 
-         await mergeFileChunk(filePath, filename);
-         res.end(
-           JSON.stringify({
-             code: 0,
-             message: "file merged success"
-           })
-         );
-       }
+      await mergeFileChunk(filePath, fileHash);
+      res.end(
+        JSON.stringify({
+          code: 0,
+          message: "file merged success"
+        })
+      );
+  }
 
 
   const multipart = new multiparty.Form();
@@ -104,11 +123,10 @@ server.on("request", async (req, res) => {
     if (err) {
       return;
     }
-    console.log(' multipart.parse', JSON.stringify(fields), JSON.stringify(files))
     const [chunk] = files.chunk;
     const [hash] = fields.hash;
-    const [filename] = fields.filename;
-    const chunkDir = path.resolve(UPLOAD_DIR, filename.split('.')[0]);
+    const [fileHash] = fields.fileHash;
+    const chunkDir = path.resolve(UPLOAD_DIR, fileHash.split('.')[0]);
 
     // 切片目录不存在，创建切片目录
     if (!fse.existsSync(chunkDir)) {

@@ -1,24 +1,29 @@
 # file-upload
 
-## Project setup
+  实践 <https://juejin.cn/post/6844904046436843527#heading-17>
+
+## 安装依赖
+
 ```
 yarn install
 ```
 
-### Compiles and hot-reloads for development
+### 启动vue
+
 ```
 yarn serve
 ```
 
-### Compiles and minifies for production
+### 安装node依赖
+
 ```
-yarn build
+  cd serve
+  yarn install
 ```
 
-### Lints and fixes files
-```
-yarn lint
-```
+### 启动node服务
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+```
+  cd serve
+  node index.js
+```
