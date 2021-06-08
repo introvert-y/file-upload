@@ -186,7 +186,7 @@ export default {
         },
         data: JSON.stringify({
           size: SIZE,
-          filename: this.container.file.name,
+          fileName: this.container.file.name,
           fileHash: this.container.hash,
         }),
       });
