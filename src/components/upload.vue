@@ -43,6 +43,8 @@
 </template>
 
 <script>
+import SparkMD5 from 'spark-md5';
+
 const SIZE = 1 * 1024 * 1024; // 切片大小
 const statusMap = {
   wait: "wait",
@@ -131,9 +133,47 @@ export default {
           requestList.push(xhr);
         }
 
-        console.log("requestList", requestList);
+        // console.log("requestList", requestList);
       });
     },
+    async sendRequest(forms, max = 4, fn) {
+      const that = this;
+      console.log('sendRequest this.data', this.data);
+      console.log('func', this.createProgresshandler, fn)
+      return new Promise(resolve => {
+        const len = forms.length;
+        let idx = 0;
+        let counter = 0;
+
+        const start = async ()=> {
+          // 有请求，有通道
+          while (idx < len && max > 0) {
+            max--; // 占用通道
+            console.log(idx, "start");
+            const form = forms[idx].formData;
+            const index = forms[idx].index;
+            console.log('index', index, form);
+            idx++
+            that.request({
+              url: "http://localhost:3000",
+              data: form,
+              onProgress: fn(this.data[index]),
+              requestList: this.requestList
+            }).then(() => {
+              max++; // 释放通道
+              counter;
+              if (counter === len) {
+                resolve();
+              } else {
+                start();
+              }
+            });
+          }
+        }
+        start();
+      });
+    },
+
     handleFileChange(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -162,16 +202,20 @@ export default {
           formData.append("fileHash", fileHash);
           formData.append("filename", this.container.file.name);
           return { formData, index };
-        })
-        .map(async ({ formData, index }) =>
-          this.request({
-            url: "http://localhost:3000",
-            data: formData,
-            onProgress: this.createProgressHandler(this.data[index]),
-            requestList: this.requestList,
-          })
-        );
-      await Promise.all(requestList); // 并发切片
+        });
+        // .map(async ({ formData, index }) =>
+        //   this.request({
+        //     url: "http://localhost:3000",
+        //     data: formData,
+        //     onProgress: this.createProgressHandler(this.data[index]),
+        //     requestList: this.requestList,
+        //   })
+        // );
+      // await Promise.all(requestList); // 并发切片
+      
+
+
+       await this.sendRequest(requestList, 4, this.createProgressHandler)
       // 之前上传的切片数量 + 本次上传的切片数量 = 所有切片数量时
       // 合并切片
       if (uploadedList.length + requestList.length === this.data.length) {
@@ -205,6 +249,93 @@ export default {
         };
       });
     },
+    // requestIdleCallback 计算hash
+    async calculateHashIdle(chunks) {
+      const that = this;
+      return new Promise(resolve => {
+        const spark = new SparkMD5.ArrayBuffer();
+        let count = 0;
+        // 根据文件内容追加计算
+        const appendToSpark = async file => {
+          return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.readAsArrayBuffer(file);
+            reader.onload = e => {
+              spark.append(e.target.result);
+              resolve();
+            };
+          });
+        };
+        const workLoop = async deadline => {
+          // 有任务，并且当前帧还没结束
+          while (count < chunks.length && deadline.timeRemaining() > 1) {
+            await appendToSpark(chunks[count].file);
+            count++;
+            // 没有了 计算完毕
+            if (count < chunks.length) {
+              // 计算中
+              that.hashPercentage = Number(
+                ((100 * count) / chunks.length).toFixed(2)
+              );
+              console.log('workLoop hashProgress', this.hashProgress)
+            } else {
+              // 计算完毕
+              that.hashPercentage = 100;
+              resolve(spark.end());
+            }
+          }
+          window.requestIdleCallback(workLoop);
+        };
+        window.requestIdleCallback(workLoop);
+      });
+    },
+    // 抽样hash
+    async calculateHashSample() {
+      const that = this;
+      return new Promise(resolve => {
+        const spark = new SparkMD5.ArrayBuffer();
+        const reader = new FileReader();
+        const file = this.container.file;
+        // 文件大小
+        const size = this.container.file.size;
+        let offset = 2 * 1024 * 1024;
+
+        let chunks = [file.slice(0, offset)];
+
+        // 前面100K
+
+        let cur = offset;
+        while (cur < size) {
+          // 最后一块全部加进来
+          if (cur + offset >= size) {
+            chunks.push(file.slice(cur, cur + offset));
+            // 计算完毕
+            that.hashPercentage = 100;
+          } else {
+            // 中间的 前中后去两个字节
+            const mid = cur + offset / 2;
+            const end = cur + offset;
+            chunks.push(file.slice(cur, cur + 2));
+            chunks.push(file.slice(mid, mid + 2));
+            chunks.push(file.slice(end - 2, end));
+          // 计算中
+            that.hashPercentage = Number(
+              (size / cur).toFixed(2)
+            );
+          }
+          // 前取两个字节
+          cur += offset;
+        }
+        console.log('calculateHashSample', chunks)
+        // 拼接
+        reader.readAsArrayBuffer(new Blob(chunks));
+        reader.onload = e => {
+          spark.append(e.target.result);
+
+          resolve(spark.end());
+        };
+      });
+    },
     async handleUpload() {
       if (!this.container.file) return;
       this.status = statusMap.uploading;
@@ -214,7 +345,13 @@ export default {
       const { name } = this.container.file;
       const [fileName, unit] = name.split(".");
       console.log("handleUpload", fileName, unit);
-      this.container.hash = await this.calculateHash(fileChunkList);
+      console.time('计算哈希耗时');
+      // this.container.hash = await this.calculateHash(fileChunkList);
+      // this.container.hash = await this.calculateHashIdle(fileChunkList);
+      this.container.hash = await this.calculateHashSample();
+      console.timeEnd('计算哈希耗时');
+
+      console.log('hash', this.container.hash);
       const { shouldUpload, uploadedList } = await this.verifyUpload(
         this.container.file.name,
         this.container.hash
