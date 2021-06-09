@@ -2,16 +2,13 @@ const http = require("http");
 const path = require("path");
 const fse = require("fs-extra");
 const multiparty = require("multiparty");
-const videoStitch = require('video-stitch');
 
 const server = http.createServer();
  
-const videoConcat = videoStitch.concat;
-
 const extractExt = fileName => fileName.slice(fileName.lastIndexOf("."));  // 提取后缀名
 const UPLOAD_DIR = path.resolve(__dirname, "target"); // 大文件存储目录
 
-const SIZE = 1 * 1024 * 1024; // 切片大小
+const SIZE = 5 * 1024 * 1024; // 切片大小
 
 const resolvePost = req => {
   return new Promise(resolve => {
@@ -53,50 +50,45 @@ const mergeFileChunk = async (filePath, fileHash, size = SIZE) => {
   const fileSuffix = extractExt(filePath).slice(1);
   console.log('开始合并 >>>>>>>>>', JSON.stringify(chunkPaths));
   console.log('文件后缀', fileSuffix);
-  if (fileSuffix === 'mp4') {
-    mergeVideoFn(chunkDir, chunkPaths);
-  } else {
-    await Promise.all(
-      chunkPaths.map((chunkPath, index) => {
-        console.log('创建流文件', index * size)
-        return pipeStream(
-          path.resolve(chunkDir, chunkPath),
-          // 指定位置创建可写流
-          fse.createWriteStream(filePath, {
-            start: index * size,
-            end: (index + 1) * size
-          })
-        );
-      })
-    );
-    console.timeEnd(starMergekey);
-    console.log('合并完成');
+  // if (fileSuffix === 'mp4') {
+    
+  // } else {
+  //   await Promise.all(
+  //     chunkPaths.map((chunkPath, index) => {
+  //       console.log('创建流文件', index * size)
+  //       return pipeStream(
+  //         path.resolve(chunkDir, chunkPath),
+  //         // 指定位置创建可写流
+  //         fse.createWriteStream(filePath, {
+  //           start: index * size,
+  //           end: (index + 1) * size
+  //         })
+  //       );
+  //     })
+  //   );
+  //   console.timeEnd(starMergekey);
+  //   console.log('合并完成');
 
-    fse.rmdirSync(chunkDir); // 合并后删除保存切片的目录
-  }
-};
-
-const mergeVideoFn = (fileName, fileList) => {
-  videoConcat({
-    silent: true, // optional. if set to false, gives detailed output on console
-    overwrite: false // optional. by default, if file already exists, ffmpeg will ask for overwriting in console and that pause the process. if set to true, it will force overwriting. if set to false it will prevent overwriting.
-  })
-  .clips(fileList.map(item => ({
-    fileName: item,
-  })))
-  .output(fileName) //optional absolute file name for output file
-  .concat()
-  .then((outputFileName) => {
-    console.log('path to output file', outputFileName);
-    console.timeEnd(starMergekey);
+  //   fse.rmdirSync(chunkDir); // 合并后删除保存切片的目录
+  // }
+  await Promise.all(
+    chunkPaths.map((chunkPath, index) => {
+      console.log('创建流文件', index * size)
+      return pipeStream(
+        path.resolve(chunkDir, chunkPath),
+        // 指定位置创建可写流
+        fse.createWriteStream(filePath, {
+          start: index * size,
+          end: (index + 1) * size
+        })
+      );
+    })
+  );
+  console.timeEnd(starMergekey);
   console.log('合并完成');
 
   fse.rmdirSync(chunkDir); // 合并后删除保存切片的目录
-  })
-  .catch((err) => {
-    console.log('err', err);
-  });
-}
+};
 
 
 // 返回已经上传切片名
@@ -122,7 +114,7 @@ server.on("request", async (req, res) => {
     const hasFileDirPath =  fse.existsSync(fileDirPath);
     res.end(
       JSON.stringify({
-        shouldUpload: !fse.existsSync(filePath),
+        shouldUpload: !hasFileDirPath,
         uploadedList: hasFileDirPath ? await createUploadedList(fileHash) : [],
       })
     );

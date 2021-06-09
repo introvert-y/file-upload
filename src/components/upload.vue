@@ -19,7 +19,24 @@
       <div>总进度</div>
       <el-progress :percentage="fakeUploadPercentage"></el-progress>
     </div>
-    <el-table :data="data">
+
+    <div class="cube-container" :style="{width:cubeWidth+'px'}">
+    <div class="cube" 
+      v-for="chunk in data" 
+      :key="chunk.hash">
+      <div           
+        :class="{
+        'uploading':chunk.percentage>0&&chunk.percentage<100, 
+        'success':chunk.percentage==100
+        }" 
+        :style="{height:chunk.percentage+'%'}"
+        >
+        
+        <i v-if="chunk.percentage>0&&chunk.percentage<100" class="el-icon-loading" style="color:#F56C6C;"></i>
+      </div>
+    </div>
+  </div>
+    <!-- <el-table :data="data">
       <el-table-column
         prop="hash"
         label="切片hash"
@@ -38,14 +55,14 @@
           ></el-progress>
         </template>
       </el-table-column>
-    </el-table>
+    </el-table> -->
   </div>
 </template>
 
 <script>
 import SparkMD5 from 'spark-md5';
 
-const SIZE = 1 * 1024 * 1024; // 切片大小
+const SIZE = 5 * 1024 * 1024; // 切片大小
 const statusMap = {
   wait: "wait",
   pause: "pause",
@@ -83,6 +100,9 @@ export default {
         .reduce((acc, cur) => acc + cur, 0);
 
       return parseInt((loaded / this.container.file.size).toFixed(2));
+    },
+    cubeWidth(){
+      return Math.ceil(Math.sqrt(this.data.length))*16
     },
   },
   methods: {
@@ -161,7 +181,8 @@ export default {
               requestList: this.requestList
             }).then(() => {
               max++; // 释放通道
-              counter;
+              counter++;
+              console.log('counter', counter, len);
               if (counter === len) {
                 resolve();
               } else {
@@ -215,12 +236,14 @@ export default {
       
 
 
-       await this.sendRequest(requestList, 4, this.createProgressHandler)
+      await this.sendRequest(requestList, 4, this.createProgressHandler)
       // 之前上传的切片数量 + 本次上传的切片数量 = 所有切片数量时
       // 合并切片
+      console.log('上传完了', uploadedList.length + requestList.length, this.data.length)
       if (uploadedList.length + requestList.length === this.data.length) {
         await this.mergeRequest();
       }
+      // await this.mergeRequest();
     },
     async mergeRequest() {
       await this.request({
@@ -399,3 +422,24 @@ export default {
   },
 };
 </script>
+<style scoped>
+.cube-container {
+  width: 100px;
+  overflow: hidden;
+}
+.cube-container .cube {
+  width: 14px;
+  height: 14px;
+  line-height: 12px;
+  border: 1px solid black;
+  background: #eee;
+  float: left;
+}
+.cube-container .cube>.success {
+  background: #67C23A;
+}
+.cube-container .cube>.uploading {
+  background: #409EFF;
+}
+
+</style>
