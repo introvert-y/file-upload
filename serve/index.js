@@ -8,7 +8,7 @@ const server = http.createServer();
 const extractExt = fileName => fileName.slice(fileName.lastIndexOf("."));  // 提取后缀名
 const UPLOAD_DIR = path.resolve(__dirname, "target"); // 大文件存储目录
 
-const SIZE = 5 * 1024 * 1024; // 切片大小
+const SIZE = 1 * 1024 * 1024; // 切片大小
 
 const resolvePost = req => {
   return new Promise(resolve => {
@@ -96,6 +96,7 @@ const createUploadedList = async fileHash =>
   fse.existsSync(path.resolve(UPLOAD_DIR, fileHash))
     ? await fse.readdir(path.resolve(UPLOAD_DIR, fileHash))
     : [];
+
 server.on("request", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Headers", "*");
@@ -137,30 +138,55 @@ server.on("request", async (req, res) => {
       );
   }
 
+  if (req.url === '/upload') {
+    const multipart = new multiparty.Form();
+    multipart.parse(req, async (err, fields, files) => {
+      if (err) {
+        return;
+      }
+      if(Math.random() < 0.5){
+        console.log('概率报错了')
+        // 概率报错
+        if (num < 0.3) {
+          
+          res.statusCode=500
+          res.end()
+        } else {
+          res.end(
+            JSON.stringify({
+              code: -1,
+              message: "upload fail"
+            })
+          );
+        }
+        // res.end(
+        //   JSON.stringify({
+        //     code: -1,
+        //     message: "upload fail"
+        //   })
+        // );
+        return;
+      }
+      console.log('执行了')
+      const [chunk] = files.chunk;
+      const [hash] = fields.hash;
+      const [fileHash] = fields.fileHash;
+      const chunkDir = path.resolve(UPLOAD_DIR, fileHash.split('.')[0]);
+  
+      // 切片目录不存在，创建切片目录
+      if (!fse.existsSync(chunkDir)) {
+        await fse.mkdirs(chunkDir);
+      }
+  
+      // fs-extra 专用方法，类似 fs.rename 并且跨平台
+      // fs-extra 的 rename 方法 windows 平台会有权限问题
+      // https://github.com/meteor/meteor/issues/7852#issuecomment-255767835
+      console.log('移动到该目录下', path.resolve(chunkDir, hash))
+      await fse.move(chunk.path, path.resolve(chunkDir, hash));
+      res.end("received file chunk");
+    });
+  }
 
-  const multipart = new multiparty.Form();
-
-  multipart.parse(req, async (err, fields, files) => {
-    if (err) {
-      return;
-    }
-    const [chunk] = files.chunk;
-    const [hash] = fields.hash;
-    const [fileHash] = fields.fileHash;
-    const chunkDir = path.resolve(UPLOAD_DIR, fileHash.split('.')[0]);
-
-    // 切片目录不存在，创建切片目录
-    if (!fse.existsSync(chunkDir)) {
-      await fse.mkdirs(chunkDir);
-    }
-
-    // fs-extra 专用方法，类似 fs.rename 并且跨平台
-    // fs-extra 的 rename 方法 windows 平台会有权限问题
-    // https://github.com/meteor/meteor/issues/7852#issuecomment-255767835
-    console.log('移动到该目录下', path.resolve(chunkDir, hash))
-    await fse.move(chunk.path, path.resolve(chunkDir, hash));
-    res.end("received file chunk");
-  });
 });
 
 server.listen(3000, () => console.log("正在监听 3000 端口"));
