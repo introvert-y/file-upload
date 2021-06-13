@@ -144,13 +144,14 @@ server.on("request", async (req, res) => {
       if (err) {
         return;
       }
-      const num = Math.random();
-      console.log('num' , num);
-      if(Math.random()<0.5){
+      if(Math.random() > 0.3){
         // 概率报错
         console.log('概率报错了')
         res.statusCode=500
-        res.end()
+        res.end(JSON.stringify({
+          code: -1,
+          message: 'upload fail'
+        }))
         return 
       }
       const [chunk] = files.chunk;
@@ -174,7 +175,7 @@ server.on("request", async (req, res) => {
       res.end(
         JSON.stringify({
           code: 0,
-          message: "received file chunk"
+          message: "success"
         })
       );
     });

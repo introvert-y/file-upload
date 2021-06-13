@@ -333,17 +333,40 @@
                   data: form,
                   onProgress: fn(this.data[index]),
                   requestList: this.requestList
-                }).then(() => {
-                  urls[i].status = statusMap.done
-                  max++; // 释放通道
-                  counter++;
-                  console.log('counter',counter)
-                  urls[counter].done = true
-                  if (counter === len) {
-                    return resolve();
+                }).then((res) => {
+                  
+                  console.log('then callback', res.code, res.message)
+                  if (res.code === 0) {
+                    urls[i].status = statusMap.done
+                    max++; // 释放通道
+                    counter++;
+                    console.log('counter',counter)
+                    urls[counter].done = true
+                    if (counter === len) {
+                      return resolve();
+                    } else {
+                      start();
+                    }
                   } else {
-                    start();
+                    urls[i].status = statusMap.error
+                    if (typeof retryArr[index] !== 'number') {
+                      retryArr[index] = 0
+                    }
+                    // 次数累加
+                    retryArr[index]++
+                    // 一个请求报错3次的
+                    if (retryArr[index] >= 3) {
+                      console.log(`${i}, ${JSON.stringify(retryArr)}`);
+                      return reject() // 考虑abort所有别的
+                    }
+                    console.log(index, retryArr[index], '次报错')
+                    // 3次报错以内的 重启
+                    this.data[index].progress = -1 // 报错的进度条
+                    max++; // 释放当前占用的通道，但是counter不累加
+
+                    start()
                   }
+                  
                 }).catch(() => {
                   // 初始值
                   urls[i].status = statusMap.error
@@ -428,9 +451,9 @@
           uploadedList.length + requestList.length,
           this.data.length
         );
-        if (uploadedList.length + requestList.length === this.data.length) {
-          await this.mergeRequest();
-        }
+        // if (uploadedList.length + requestList.length === this.data.length) {
+        //   await this.mergeRequest();
+        // }
         // await this.mergeRequest();
       },
       // 合并切片
