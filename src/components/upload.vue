@@ -250,7 +250,6 @@
               requestList.splice(xhrIndex, 1);
               that.requestList = requestList;
             }
-
             resolve({
               data: e.target.response,
             });
@@ -306,14 +305,19 @@
       },
 
       async sendRequestAndErrorRepeat(urls, max = 4, fn) {
-        console.log(urls, max)
-
-        return new Promise((resolve, reject) => {
+        console.log('sendRequestAndErrorRepeat', urls, max)
+        urls.map(item => ({
+          done: false,
+          ...item,
+        }))
+        return new Promise((resolve) => {
           const len = urls.length - 1;
           // let idx = 0;
           let counter = 0;
           const retryArr = []
+          let isAbort = false;
           const start = async () => {
+
             // 有请求，有通道
             while (counter < len && max > 0) {
               max--; // 占用通道
@@ -328,20 +332,29 @@
                 if (typeof retryArr[index] == 'number') {
                   console.log(index, '开始重试')
                 }
+                // if (urls[index].done) {
+                //   return;
+                // }
                 this.request({
                   url: "http://localhost:3000/upload",
                   data: form,
                   onProgress: fn(this.data[index]),
                   requestList: this.requestList
-                }).then((res) => {
-                  
-                  console.log('then callback', res.code, res.message)
+                })
+                .then((dataObj) => {
+                  if (isAbort) {
+                    return;
+                  }
+                  console.log('function执行完了')
+                  const res = JSON.parse(dataObj.data);
+
+                  console.log('then callback', index, res.code, res.message)
                   if (res.code === 0) {
                     urls[i].status = statusMap.done
                     max++; // 释放通道
                     counter++;
-                    console.log('counter',counter)
-                    urls[counter].done = true
+                    console.log('counter', counter)
+                    // urls[counter].done = true
                     if (counter === len) {
                       return resolve();
                     } else {
@@ -356,37 +369,26 @@
                     retryArr[index]++
                     // 一个请求报错3次的
                     if (retryArr[index] >= 3) {
-                      console.log(`${i}, ${JSON.stringify(retryArr)}`);
-                      return reject() // 考虑abort所有别的
+                      isAbort = true;
+                      console.log(`abort ${index}, ${JSON.stringify(retryArr)}`);
+                      console.log('this.data', this.data);
+                      this.data[index].percentage = -1 // 报错的进度条
+
+                      return; // 考虑abort所有别的
+                      // urls[i].status = statusMap.done;
                     }
-                    console.log(index, retryArr[index], '次报错')
+                    // console.log(index, retryArr[index], '次报错')
                     // 3次报错以内的 重启
-                    this.data[index].progress = -1 // 报错的进度条
+                    this.data[index].percentage = -1 // 报错的进度条
                     max++; // 释放当前占用的通道，但是counter不累加
 
                     start()
                   }
-                  
-                }).catch(() => {
-                  // 初始值
-                  urls[i].status = statusMap.error
-                  if (typeof retryArr[index] !== 'number') {
-                    retryArr[index] = 0
-                  }
-                  // 次数累加
-                  retryArr[index]++
-                  // 一个请求报错3次的
-                  if (retryArr[index] >= 2) {
-                    console.log(`${i}, ${JSON.stringify(retryArr)}`);
-                    return reject() // 考虑abort所有别的
-                  }
-                  console.log(index, retryArr[index], '次报错')
-                  // 3次报错以内的 重启
-                  this.data[index].progress = -1 // 报错的进度条
-                  max++; // 释放当前占用的通道，但是counter不累加
 
-                  start()
                 })
+                  .catch((err) => {
+                    console.log('err', err);
+                  })
               }
             }
 
@@ -443,7 +445,6 @@
         // await Promise.all(requestList); // 并发切片
 
         await this.sendRequestAndErrorRepeat(requestList, 4, this.createProgressHandler);
-        console.log('放弃了abort')
         // 之前上传的切片数量 + 本次上传的切片数量 = 所有切片数量时
         // 合并切片
         console.log(
@@ -454,7 +455,7 @@
         // if (uploadedList.length + requestList.length === this.data.length) {
         //   await this.mergeRequest();
         // }
-        // await this.mergeRequest();
+        await this.mergeRequest();
       },
       // 合并切片
       async mergeRequest() {

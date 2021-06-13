@@ -144,7 +144,7 @@ server.on("request", async (req, res) => {
       if (err) {
         return;
       }
-      if(Math.random() > 0.3){
+      if(Math.random() < 0.2){
         // 概率报错
         console.log('概率报错了')
         res.statusCode=500
