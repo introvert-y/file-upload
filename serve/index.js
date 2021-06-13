@@ -2,6 +2,7 @@ const http = require("http");
 const path = require("path");
 const fse = require("fs-extra");
 const multiparty = require("multiparty");
+const schedule = require('./schedule')
 
 const server = http.createServer();
  
@@ -9,6 +10,9 @@ const extractExt = fileName => fileName.slice(fileName.lastIndexOf("."));  // �
 const UPLOAD_DIR = path.resolve(__dirname, "target"); // 大文件存储目录
 
 const SIZE = 1 * 1024 * 1024; // 切片大小
+
+// schedule.start(UPLOAD_DIR);
+
 
 const resolvePost = req => {
   return new Promise(resolve => {
@@ -119,7 +123,7 @@ server.on("request", async (req, res) => {
 
     res.end(
       JSON.stringify({
-        shouldUpload: hasFileDirPath ? (crtUploadList.length === fileSplitCount) : true,
+        shouldUpload: hasFileDirPath ? (crtUploadList.length !== fileSplitCount) : true,
         uploadedList: hasFileDirPath ? crtUploadList : [],
       })
     );
