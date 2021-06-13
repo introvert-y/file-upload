@@ -109,7 +109,8 @@
         this.status = statusMap.uploading;
         const { uploadedList } = await this.verifyUpload(
           this.container.file.name,
-          this.container.hash
+          this.container.hash,
+          Math.ceil(this.container.file.size / SIZE),
         );
         await this.uploadChunks(uploadedList);
       },
@@ -136,7 +137,8 @@
         console.log("hash", this.container.hash);
         const { shouldUpload, uploadedList } = await this.verifyUpload(
           this.container.file.name,
-          this.container.hash
+          this.container.hash,
+          Math.ceil(this.container.file.size / SIZE),
         );
         if (!shouldUpload) {
           this.$message.success("秒传：上传成功");
@@ -559,7 +561,7 @@
       },
       // 根据 hash 验证文件是否曾经已经被上传过
       // 没有才进行上传
-      async verifyUpload(fileName, fileHash) {
+      async verifyUpload(fileName, fileHash, fileSplitCount) {
         const { data } = await this.request({
           url: "http://localhost:3000/verify",
           headers: {
@@ -568,6 +570,7 @@
           data: JSON.stringify({
             fileName,
             fileHash,
+            fileSplitCount,
           }),
         });
         return JSON.parse(data);

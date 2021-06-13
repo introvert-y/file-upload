@@ -36,12 +36,12 @@ const pipeStream = (path, writeStream) => new Promise(resolve => {
 
 // 合并切片
 const mergeFileChunk = async (filePath, fileHash, size = SIZE) => { 
-  const chunkDir = path.resolve(UPLOAD_DIR, `${fileHash}`);
+ const chunkDir = path.resolve(UPLOAD_DIR, `${fileHash}`);
   console.log('mergeFileChunk chunkDir', chunkDir);
   const readKey = '读取目录';
   const starMergekey = '开始合并';
   console.time(readKey);
-  const chunkPaths = await fse.readdir(chunkDir);
+  const chunkPaths = await fse.readdir(chunkDir); 
   console.timeEnd(readKey);
   // 根据切片下标进行排序
   // 否则直接读取目录的获得的顺序可能会错乱
@@ -107,16 +107,20 @@ server.on("request", async (req, res) => {
   }
   if (req.url === "/verify") {
     const data = await resolvePost(req);
-    const { fileHash, fileName } = data;
+    const { fileHash, fileName, fileSplitCount } = data;
     console.log('verify', fileHash)
+    console.log('file split count', fileSplitCount)
     const filePath = path.resolve(UPLOAD_DIR, `${fileHash}${extractExt(fileName)}`);
     const fileDirPath = path.resolve(UPLOAD_DIR, `${fileHash}`);
     console.log('verify filePath', filePath, fileDirPath)
     const hasFileDirPath =  fse.existsSync(fileDirPath);
+    const crtUploadList = await createUploadedList(fileHash);
+    console.log('verify has upload list', crtUploadList)
+
     res.end(
       JSON.stringify({
-        shouldUpload: !hasFileDirPath,
-        uploadedList: hasFileDirPath ? await createUploadedList(fileHash) : [],
+        shouldUpload: hasFileDirPath ? (crtUploadList.length === fileSplitCount) : true,
+        uploadedList: hasFileDirPath ? crtUploadList : [],
       })
     );
   }
