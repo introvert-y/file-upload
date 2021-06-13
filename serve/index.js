@@ -144,35 +144,20 @@ server.on("request", async (req, res) => {
       if (err) {
         return;
       }
-      if(Math.random() < 0.5){
-        console.log('概率报错了')
+      const num = Math.random();
+      console.log('num' , num);
+      if(Math.random()<0.5){
         // 概率报错
-        if (num < 0.3) {
-          
-          res.statusCode=500
-          res.end()
-        } else {
-          res.end(
-            JSON.stringify({
-              code: -1,
-              message: "upload fail"
-            })
-          );
-        }
-        // res.end(
-        //   JSON.stringify({
-        //     code: -1,
-        //     message: "upload fail"
-        //   })
-        // );
-        return;
+        console.log('概率报错了')
+        res.statusCode=500
+        res.end()
+        return 
       }
-      console.log('执行了')
       const [chunk] = files.chunk;
       const [hash] = fields.hash;
       const [fileHash] = fields.fileHash;
       const chunkDir = path.resolve(UPLOAD_DIR, fileHash.split('.')[0]);
-  
+      console.log('文件名', hash)
       // 切片目录不存在，创建切片目录
       if (!fse.existsSync(chunkDir)) {
         await fse.mkdirs(chunkDir);
@@ -181,9 +166,17 @@ server.on("request", async (req, res) => {
       // fs-extra 专用方法，类似 fs.rename 并且跨平台
       // fs-extra 的 rename 方法 windows 平台会有权限问题
       // https://github.com/meteor/meteor/issues/7852#issuecomment-255767835
-      console.log('移动到该目录下', path.resolve(chunkDir, hash))
-      await fse.move(chunk.path, path.resolve(chunkDir, hash));
-      res.end("received file chunk");
+      const filePath =  path.resolve(chunkDir, hash);
+      console.log('移动到该目录下', filePath);
+
+      if (!fse.existsSync(filePath))
+      await fse.move(chunk.path, filePath);
+      res.end(
+        JSON.stringify({
+          code: 0,
+          message: "received file chunk"
+        })
+      );
     });
   }
 
