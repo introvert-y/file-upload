@@ -135,13 +135,16 @@
         console.timeEnd("计算哈希耗时");
 
         console.log("hash", this.container.hash);
-        const { shouldUpload, uploadedList } = await this.verifyUpload(
+        const { shouldUpload, uploadedList, isNeedMerge } = await this.verifyUpload(
           this.container.file.name,
           this.container.hash,
           Math.ceil(this.container.file.size / SIZE),
         );
         if (!shouldUpload) {
           this.$message.success("秒传：上传成功");
+          if (isNeedMerge) {
+            this.mergeRequest();
+          }
           return;
         }
 
@@ -321,10 +324,12 @@
           const start = async () => {
 
             // 有请求，有通道
-            while (counter < len && max > 0) {
+            // <= 是因为改了 verifyUpload，有可能存在传入到这里的数组数量为1的情况
+            while (counter <= len && max > 0) {
               max--; // 占用通道
 
               const i = urls.findIndex(v => v.status == statusMap.wait || v.status == statusMap.error)// 等待或者error
+              console.log('i', i);
               if (i !== -1) {
                 console.log(i, "start");
 
@@ -357,7 +362,10 @@
                     counter++;
                     console.log('counter', counter)
                     // urls[counter].done = true
-                    if (counter === len) {
+                    // >= 是因为改了 verifyUpload，有可能存在传入到这里的数组数量为1的情况
+
+                    if (counter >= len) {
+                      console.log('counter === len')
                       return resolve();
                     } else {
                       start();
