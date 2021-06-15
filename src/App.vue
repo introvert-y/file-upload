@@ -5,14 +5,14 @@
 </template>
 
 <script>
-import Upload from './components/upload.vue'
+import Upload from './components/upload.vue';
 
 export default {
   name: 'App',
   components: {
-    Upload
-  }
-}
+    Upload,
+  },
+};
 </script>
 
 <style>
