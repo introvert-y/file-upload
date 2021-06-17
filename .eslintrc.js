@@ -12,8 +12,8 @@ module.exports = {
     'no-debugger': 'off',
     'no-alert': 'off',
     'no-await-in-loop': 'off',
-    'no-param-reassign': 'off',
-    'no-loop-func': 'off',
+    'no-param-reassign': 'off', // 修改函数入参
+    'no-loop-func': 'off', // 在循环语句中定于函数
   },
   parserOptions: {
     parser: 'babel-eslint',
