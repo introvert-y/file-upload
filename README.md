@@ -28,4 +28,8 @@ yarn serve
   node index.js
 ```
 
-### tip: 只能上传mp3的能有效播放，mp4只有第一个分片能正常播放，且合并分片后播放失败
+### tip: 目前只有上传mp3的能有效播放，mp4需要不同的合并策略，尚未处理
+
+> main分支实现基本功能————教程url: <https://juejin.cn/post/6844904046436843527>
+>
+> feature分支实现优化体验、拓展、添加eslint，解决一些bug ————教程url: <https://juejin.cn/post/6844904055819468808#heading-0>
